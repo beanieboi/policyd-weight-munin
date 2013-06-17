@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# Plugin to count specific log categories for policyd-weight
+#
+# Magic markers - optional - used by installation scripts and
+# munin-config:
+#
+#%# family=manual
+#%# capabilities=suggest
+
+CATEGORIES="550
+        PREPEND
+        DUNNO"
+LOG_FILE=${LOG_FILE:-/var/log/mail.log}
+
+# "autoconf" and "suggest" only work reliably if the mail server already
+# contains some log entries.
+
+if [ "$1" = "autoconf" ]; then
+        [ ! -e "$LOG_FILE" ] && echo "no (no log file found: $LOG_FILE)" && exit 0
+        echo "yes" && exit 0
+fi
+
+if [ "$1" = "suggest" ]; then
+        echo "actions" && exit 0
+fi
+
+if [ "$1" = "config" ]; then
+        cat <<EOT
+graph_title Policyd-Weight log (actions)
+graph_args --base 1000 -l 0
+graph_vlabel actions
+graph_category Mail
+EOT
+echo "$CATEGORIES" | while read field; do
+        echo "${field}.label $(echo "$field" | tr "_" " ")"
+        echo "${field}.type DERIVE"
+        echo "${field}.min 0"
+ done
+exit 0
+fi
+
+echo "$CATEGORIES" | while read field; do
+        echo -n "${field}.value "
+        egrep "postfix/policyd-weight\[[0-9]+\]: decided action=" "$LOG_FILE" | grep "decided action=${field}" | wc -l
+ done
